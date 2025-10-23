@@ -4,18 +4,25 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -26,6 +33,7 @@ import com.croche.data.Counter
 import com.croche.data.CounterObject
 import com.croche.ui.CounterViewModel
 import com.croche.ui.theme.CrocheTheme
+import com.croche.ui.theme.LightBlue
 
 class MainActivity : ComponentActivity() {
     private val viewModel: CounterViewModel by viewModels()
@@ -55,7 +63,6 @@ fun CounterApp(viewModel: CounterViewModel) {
             if (objectId != null) {
                 ObjectScreen(navController = navController, viewModel = viewModel, objectId = objectId)
             } else {
-                // Handle error or navigate back
                 navController.popBackStack()
             }
         }
@@ -68,21 +75,26 @@ fun HomeScreen(navController: NavController, viewModel: CounterViewModel) {
     var showDialog by remember { mutableStateOf(false) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Contadores") }) },
+        topBar = { TopAppBar(title = { Text("Meus Contadores") }) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Adicionar Objeto")
             }
         }
     ) { padding ->
-        LazyColumn(modifier = Modifier.padding(padding)) {
-            items(viewModel.counterObjects) { obj ->
-                ListItem(
-                    headlineContent = { Text(obj.name) },
-                    modifier = Modifier.clickable {
+        if (viewModel.counterObjects.isEmpty()) {
+            EmptyState("Nenhum objeto ainda", "Toque em '+' para criar o seu primeiro objeto.")
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(padding)
+                    .padding(16.dp)
+            ) {
+                items(viewModel.counterObjects) { obj ->
+                    ObjectCard(obj) {
                         navController.navigate("object/${obj.id}")
                     }
-                )
+                }
             }
         }
 
@@ -110,10 +122,7 @@ fun ObjectScreen(navController: NavController, viewModel: CounterViewModel, obje
                 title = { Text(counterObject?.name ?: "Objeto") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = "Voltar"
-                        )
+                        Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "Voltar")
                     }
                 }
             )
@@ -124,8 +133,15 @@ fun ObjectScreen(navController: NavController, viewModel: CounterViewModel, obje
             }
         }
     ) { padding ->
-        if (counterObject != null) {
-            LazyColumn(modifier = Modifier.padding(padding)) {
+        if (counterObject == null || counterObject.counters.isEmpty()) {
+            EmptyState("Nenhum contador ainda", "Toque em '+' para adicionar o seu primeiro contador.")
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(padding)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 items(counterObject.counters) { counter ->
                     CounterRow(
                         counter = counter,
@@ -148,25 +164,56 @@ fun ObjectScreen(navController: NavController, viewModel: CounterViewModel, obje
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ObjectCard(obj: CounterObject, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        onClick = onClick
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(obj.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("${obj.counters.size} contadores", style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
 @Composable
 fun CounterRow(counter: Counter, onIncrement: () -> Unit, onDecrement: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .background(MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.medium)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(counter.label, style = MaterialTheme.typography.bodyLarge)
+        Text(counter.label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Button(onClick = onDecrement) { Text("-") }
+            IconButton(onClick = onDecrement) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Diminuir") }
             Text(
                 text = counter.value.toString(),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
-            Button(onClick = onIncrement) { Text("+") }
+            IconButton(onClick = onIncrement) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Aumentar") }
         }
+    }
+}
+
+@Composable
+fun EmptyState(title: String, subtitle: String) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
     }
 }
 
@@ -190,7 +237,7 @@ fun ObjectNameDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
             }
         },
         dismissButton = {
-            Button(onClick = onDismiss) {
+            TextButton(onClick = onDismiss) {
                 Text("Cancelar")
             }
         }
@@ -217,7 +264,7 @@ fun CounterLabelDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
             }
         },
         dismissButton = {
-            Button(onClick = onDismiss) {
+            TextButton(onClick = onDismiss) {
                 Text("Cancelar")
             }
         }
